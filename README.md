@@ -21,7 +21,7 @@ We conduct regular hands-on sessions covering topics such as:
 ### Projects
 We support student-led  projects in domains such as:
 - Healthcare Analytics
-- Social Impact & Policy Research
+- Social Impact 
 - Financial Data Analysis
 
 
