@@ -16,6 +16,7 @@ We conduct regular hands-on sessions covering topics such as:
 - Machine Learning 
 - Data Visualization
 - Statistical Analysis & Forecasting
+- Machine learning Workflows
 
 
 ### Projects
