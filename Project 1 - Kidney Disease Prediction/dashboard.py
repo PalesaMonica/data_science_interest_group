@@ -135,7 +135,7 @@ page = st.sidebar.selectbox("Choose Page", [
     "Dialysis Needed Analysis",
     "Feature Engineering & Selection",
     "Model Training & Evaluation",
-    "Model Deployment"
+    "Model Prediction"
 ])
 st.title(f"Visualization for {page}")
 if page =="CKD Status Analysis":
@@ -289,6 +289,7 @@ elif page == "Feature Engineering & Selection":
 
     # Store for next page
     st.session_state['data_for_model'] = data_eng.copy()
+
 elif page == "Model Training & Evaluation":
     if 'data_for_model' in st.session_state:
         model_data = st.session_state['data_for_model'].copy()
@@ -449,20 +450,81 @@ elif page == "Model Training & Evaluation":
             report_df = pd.DataFrame(report_data)
             st.markdown(report_df.to_markdown(index=False))
             st.markdown("---")  # Separator between models
+            
+            best_model_name = max(model_results, key=lambda name: model_results[name]['accuracy'])
 
-            st.markdown("**Model Saving**")
-            save_model = st.checkbox("Save Best Model")
-            if save_model:
-                best_model_name = max(model_results, key=lambda x: model_results[x]['accuracy'])
+            # Retrieve corresponding trained model object
+            if best_model_name == "Random Forest":
+                best_model = rf_model
+            elif best_model_name == "Logistic Regression":
+                best_model = lr_model
+            elif best_model_name == "Decision Tree":
+                best_model = dt_model
+            else:
                 best_model = None
-                if best_model_name == "Logistic Regression":
-                    best_model = lr_model
-                elif best_model_name == "Decision Tree":
-                    best_model = dt_model
-                elif best_model_name == "Random Forest":
-                    best_model = rf_model
-                
-                if best_model:
-                    with open(f"{best_model_name.replace(' ', '_').lower()}_model.pkl", 'wb') as f:
-                        pickle.dump(best_model, f)
-                    st.success(f"{best_model_name} saved successfully!")
+
+            # Save the best model
+            if best_model:
+                with open(f"{best_model_name.replace(' ', '_').lower()}_model.pkl", 'wb') as f:
+                    pickle.dump(best_model, f)
+                st.success(f"{best_model_name} saved successfully!")
+
+            # Save encoders for consistent prediction preprocessing
+            encoders = {}
+            for col in ['Diabetes', 'Hypertension', 'CKD_Status', 'BUN_Category', 'Creatinine_Category', 'Age_Group', 'GFR_category']:
+                le = LabelEncoder()
+                model_data[col] = le.fit_transform(model_data[col])
+                encoders[col] = le
+
+            # Save encoders
+            with open("label_encoders.pkl", "wb") as f:
+                pickle.dump(encoders, f)
+
+           #use the model to make predictions
+elif page == "Model Prediction":
+    st.title("Model Prediction")
+    st.write("This section allows you to make predictions using the trained model.")
+    # Load model and encoders
+    try:
+        with open("random_forest_model.pkl", 'rb') as f:
+            model = pickle.load(f)
+        with open("label_encoders.pkl", 'rb') as f:
+            encoders = pickle.load(f)
+        st.success("Model and encoders loaded successfully!")
+    except FileNotFoundError:
+        st.error("Model or encoders not found. Please train and save the model first.")
+        st.stop()
+
+    # User inputs
+# User inputs
+    st.subheader("Input Features for Prediction")
+
+    age_group = st.selectbox("Age Group", list(encoders["Age_Group"].classes_))
+    bun_category = st.selectbox("BUN Category", list(encoders["BUN_Category"].classes_))
+    creatinine_category = st.selectbox("Creatinine Category", list(encoders["Creatinine_Category"].classes_))
+    gfr_category = st.selectbox("GFR Category", list(encoders["GFR_category"].classes_))
+    diabetes = st.selectbox("Diabetes Status", list(encoders["Diabetes"].classes_))
+    hypertension = st.selectbox("Hypertension Status", list(encoders["Hypertension"].classes_))
+
+
+    # Prepare input DataFrame
+    input_data = pd.DataFrame({
+        'Age_Group': [age_group],
+        'BUN_Category': [bun_category],
+        'Creatinine_Category': [creatinine_category],
+        'GFR_category': [gfr_category],
+        'Diabetes': [diabetes],
+        'Hypertension': [hypertension]
+    })
+
+    # Encode using saved encoders
+    for col in input_data.columns:
+        le = encoders.get(col)
+        if le:
+            input_data[col] = le.transform(input_data[col])
+
+    # Prediction
+    if st.button("Predict"):
+        prediction = model.predict(input_data)
+        prediction_label = "CKD" if prediction[0] == 1 else "Not CKD"
+        st.success(f"Prediction: {prediction_label}")
